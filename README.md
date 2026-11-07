@@ -1,1 +1,27 @@
 #  iRingo: 🌤 WeatherKit
+
+## 本 Fork 的修改
+
+基于上游 `dev` 提交 `b4a75db748641472ec9e36e055080cd06cd4c55b`，参考作者公开 Gist `862db28df04be7523476d10b61b128f2` 的 `50490567d6cb5aa78778f050f18396f2c5bef4d7` 快照，将 v3 修复接入正式版。
+
+- 正式版处理 v3 空气质量、补充物理缺失的分钟降水，并补全已有天气预警；其他 v3 产品保持原始数据。
+- 解析失败的产品保留原包，不向其注入第三方数据；用户设置与 URL 请求的数据集共同限制处理范围。
+- 正式插件补齐 v2/v3 请求规则和 v3 二进制响应规则，复用 macOS country 补全。
+- 保留上游开发分支的一氧化碳单位换算、空气质量边界判断、稀疏根槽和协议依赖修复。
+- 正式模块下载本 Fork 的版本化 Release 脚本；开发模块仍指向作者测试 Gist。
+
+## 构建与验证
+
+需要 Node.js 26 和能读取上游 GitHub Packages 的凭据。将凭据保存在本机环境变量 `NODE_AUTH_TOKEN`，在 GitHub Actions 中使用仓库 Secret `PACKAGE_TOKEN`；不要将凭据提交到代码。
+
+运行 `npm ci`、`npm run build`、`npm run build:dev`、`npm test` 验证脚本，再运行 `npm run build:args` 生成发布模块。完整模块构建包含 Egern 转换，需要 Puppeteer Chrome。
+
+Loon 产物为 `dist/iRingo.WeatherKit.lpx`。版本 `v3.3.3` 的 Release 必须同时包含该文件、`request.bundle.js` 和 `response.bundle.js`，随后才能使用对应下载链接。
+
+本地验证已包含模块规则测试、CO 单位测试，以及使用上述作者测试版内嵌依赖的隔离源码回放；由于上游 GitHub Packages 返回 401，完整 npm 构建尚未通过。未进行 Apple 天气实机和真实第三方 API 验证。
+
+不依赖 npm 凭据的检查：`node --test tests/severeWeatherRewriteModules.test.mjs`；将上述 Gist 克隆并检出固定快照后，运行 `node tests/referenceReplay.mjs /path/to/gist`。该回放校验引用文件 SHA-256，加载编辑后的正式处理器，模拟第三方数据并禁止真实 HTTP 请求。`Fork regression checks` 工作流执行相同检查；它不替代 npm 完整构建和实机验证。
+
+dev 分支支持 WK3 空气质量处理，使用 `@nsringo/weatherkit@1.2.0` 的模型并复用现有空气质量配置、数据源和算法。只有请求与设置都包含 `airQuality` 时才处理；其他 WK3 数据集保持 Apple 原始数据。
+
+当前采用 [WK3 b66 的局部 schema](https://github.com/NSRingo/apple.WeatherKit/blob/v1.2.0/WK3.Weather.fbs)。AQ 子树含未覆盖字段或枚举时保持原始数据；当前验证为静态和合成回放，尚无客户端实机验收结论。

@@ -215,7 +215,9 @@ test("Dev builds use dev templates, bundles, and output names", async () => {
     }
     assert.doesNotMatch(config, /\boutput\b[^\n]*from "\.\/arguments-builder\.full\.config"/);
     assert.match(packageJson, /"dev": "npm-run-all --parallel build:dev build:dev-args"/);
-    assert.match(devWorkflow, /run: npm run dev/);
+    assert.match(devWorkflow, /run: npm run build:dev/);
+    assert.match(devWorkflow, /run: npm run build:dev-args/);
+    assert.match(devWorkflow, /needs: \[scripts, modules\]/);
     assert.match(rollup, /\.\/dist\/request\.dev\.bundle\.js/);
     assert.match(rollup, /\.\/dist\/response\.dev\.bundle\.js/);
     assert.doesNotMatch(rollup, /\.\/dist\/(?:request|response)\.bundle\.js/);
@@ -244,10 +246,28 @@ test("Dev builds use dev templates, bundles, and output names", async () => {
         assert.match(template, /airQualityScale[^\n]+request\.dev\.bundle\.js/);
     }
     assert.match(stash, /WeatherKit\.api\.v1\.airQualityScale\.request:[\s\S]*?url: [^\n]+request\.dev\.bundle\.js/);
-    assert.match(loon, /api\.v1\.weather\.request/);
+    assert.match(loon, /api\.v2\.weather\.request/);
+    assert.match(loon, /api\.v3\.weather\.request/);
     for (const template of [surge, loon, quantumultX, stash]) {
         assert.doesNotMatch(template, /releases\/download/);
     }
+});
+
+test("release modules route v2/v3 requests and responses to this fork", async () => {
+    for (const platform of ["surge", "loon", "stash", "quantumultx"]) {
+        const content = await readFile(new URL(`../template/${platform}.handlebars`, import.meta.url), "utf8");
+        assert.ok(content.includes("api\\/v3\\/weather\\/"), platform);
+        assert.ok(content.includes("{{@package 'releaseBase'}}"), platform);
+        assert.doesNotMatch(content, /https:\/\/github\.com\/NSRingo\/WeatherKit\/releases\//, platform);
+        if (platform === "loon" || platform === "surge") {
+            for (const version of ["v2", "v3"]) {
+                assert.match(content, new RegExp(`api\\.${version}\\.weather\\.request[^\\n]*|[^\\n]*api\\.${version}\\.weather\\.request`));
+                assert.ok(content.split("\n").some(line => line.includes(`api.${version}.weather.response`) && line.includes("binary-body-mode=1")), platform);
+            }
+        }
+    }
+    const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    assert.equal(pkg.releaseBase, "https://github.com/615884247/WeatherKit/releases/download");
 });
 
 test("Handler generation keeps Loon local and enables Egern", async () => {
@@ -288,6 +308,7 @@ test("WeatherAlert provider settings expose web and user API choices", async () 
     assert.match(full, /export const dataSetsFull: Arg\[\] = \[[\s\S]*defaultValue: \["airQuality", "currentWeather", "forecastDaily", "forecastHourly", "forecastNextHour", "news", "weatherAlerts", "weatherChange", "trendComparison", "locationInfo"\][\s\S]*key: "weatherChange", label: "天气变化"[\s\S]*key: "trendComparison", label: "历史对比"/);
     assert.doesNotMatch(full, /export const dataSetsFull: Arg\[\] = \[[\s\S]*\.\.\.dataSets\[0\]/);
     assert.match(full, /key: "Weather\.Replace"[\s\S]*defaultValue: "CN"[\s\S]*type: "string"/);
+    assert.match(full, /key: "Storage"[\s\S]*defaultValue: "PersistentStore"[\s\S]*exclude: \["boxjs"\]/);
     assert.match(full, /args: \[\.\.\.dataSetsFull/);
     assert.match(release, /import \{[^}]*dataSets[^}]*weatherAlerts[^}]*\} from "\.\/arguments-builder\.full\.config"/);
     assert.match(release, /import \{[^}]*airQuality[^}]*\} from "\.\/arguments-builder\.full\.config"/);

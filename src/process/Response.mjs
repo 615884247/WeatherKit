@@ -7,6 +7,7 @@ import WAQI from "../class/WAQI.mjs";
 import Weather from "../class/Weather.mjs";
 import WeatherAlerts from "../class/WeatherAlerts.mjs";
 import WeatherKit2 from "../class/WeatherKit2.mjs";
+import WeatherKit3 from "../class/WeatherKit3.mjs";
 import database from "../function/database.mjs";
 import mergeWeatherKitAvailability from "../function/mergeWeatherKitAvailability.mjs";
 import parseWeatherKitURL from "../function/parseWeatherKitURL.mjs";
@@ -133,6 +134,68 @@ export async function Response($request, $response) {
                                     }),
                                 );
                                 rawBody = WeatherKit2.encode(ByteBuffer, body);
+                                break;
+                            }
+                            if (url.pathname.startsWith("/api/v3/weather/")) {
+                                Console.info("🟪 WeatherKit.api.v3.weather");
+                                const parameters = parseWeatherKitURL(url);
+                                // WK3 仅注册了这三个产品的 codec，其余产品保持原始 arena。
+                                // Only these three products have registered WK3 codecs; other products keep their original arenas.
+                                const dataSets = parameters.dataSets.filter(dataSet => Settings.DataSets.includes(dataSet) && ["airQuality", "forecastNextHour", "weatherAlerts"].includes(dataSet));
+                                if (dataSets.length === 0) break;
+                                const rootNames = dataSets.map(dataSet => Configs.DataSets[dataSet] ?? dataSet);
+                                const { json, failures } = WeatherKit3.decodeWithReport(ByteBuffer, rootNames);
+                                body = json;
+                                // 读取或解码失败的产品保留原始 arena，不参与注入与重写。
+                                // Products that fail to read or decode keep their original arenas and are neither injected nor rewritten.
+                                const failed = new Set(failures.map(failure => failure.name));
+                                const providerParameters = { ...parameters, weatherKitLanguage: body.weatherAlerts?.metadata?.language };
+                                const enviroments = {
+                                    colorfulClouds: new ColorfulClouds(providerParameters, Settings?.API?.ColorfulClouds?.Token || "Y2FpeXVuX25vdGlmeQ=="),
+                                    qWeather: new QWeather(providerParameters, Settings?.API?.QWeather?.Token || "bdd98ec1d87747f3a2e8b1741a5af796", Settings?.API?.QWeather?.Host),
+                                    waqi: new WAQI(parameters, Settings?.API?.WAQI?.Token),
+                                    country: parameters.country,
+                                };
+                                const patch = {};
+
+                                await Promise.all(
+                                    dataSets.map(async dataSet => {
+                                        if (failed.has(dataSet)) {
+                                            Console.warn(`WeatherKit.api.v3.weather`, `skip failed dataSet: ${dataSet}`);
+                                            return;
+                                        }
+                                        switch (dataSet) {
+                                            case "airQuality": {
+                                                patch.airQuality = await InjectAirQuality(body.airQuality, Settings, Caches, enviroments);
+                                                break;
+                                            }
+                                            case "forecastNextHour": {
+                                                Console.debug(`body.forecastNextHour: ${JSON.stringify(body?.forecastNextHour, null, 2)}`);
+                                                // Apple 已提供分钟降水时保留原始 arena；物理缺失才注入。
+                                                // Keep Apple's own arena when present; inject only when the product is physically missing.
+                                                if (!body.forecastNextHour) {
+                                                    const forecastNextHour = await InjectForecastNextHour(undefined, Settings, enviroments);
+                                                    if (forecastNextHour?.metadata) patch.forecastNextHour = forecastNextHour;
+                                                }
+                                                break;
+                                            }
+                                            case "weatherAlerts": {
+                                                // WK3 不新增预警集合；仅在合并后有实际变化时重写。
+                                                // WK3 never adds an alert collection; rewrite only when merging actually changed it.
+                                                if (body.weatherAlerts) {
+                                                    const before = JSON.stringify(body.weatherAlerts);
+                                                    const weatherAlerts = await InjectWeatherAlerts(body.weatherAlerts, Settings, enviroments);
+                                                    Console.debug(`body.weatherAlerts: ${JSON.stringify(weatherAlerts, null, 2)}`);
+                                                    if (JSON.stringify(weatherAlerts) !== before) patch.weatherAlerts = weatherAlerts;
+                                                }
+                                                break;
+                                            }
+                                            default:
+                                                break;
+                                        }
+                                    }),
+                                );
+                                if (Object.keys(patch).length > 0) rawBody = WeatherKit3.encode(ByteBuffer, patch);
                                 break;
                             }
                             break;
@@ -358,9 +421,9 @@ async function InjectWeatherAlerts(weatherAlerts, Settings, enviroments) {
  * @returns {Promise<any>} 合并后的空气质量对象
  */
 async function InjectAirQuality(airQuality, Settings, Caches, enviroments) {
-    // Step1. 修复污染物单位
+    // Step1. 修复污染物单位（Apple 原始产品入口，CO 误标场景按 PR #107 幂等处理）
     // Step 1. Fix pollutant units.
-    airQuality = AirQuality.FixPollutantsUnits(airQuality);
+    airQuality = AirQuality.FixPollutantsUnits(airQuality, { appleProduct: true });
 
     // Step2. 判断原始污染物是否为空，并在需要时注入污染物数据
     const isPollutantEmpty = !Array.isArray(airQuality?.pollutants) || airQuality.pollutants.length === 0;

@@ -1,0 +1,25 @@
+name: Fork regression checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+      - name: Fetch the reviewed public beta snapshot
+        run: |
+          git clone https://gist.github.com/862db28df04be7523476d10b61b128f2.git .reference
+          git -C .reference checkout 50490567d6cb5aa78778f050f18396f2c5bef4d7
+      - name: Verify module hooks
+        run: node --test tests/severeWeatherRewriteModules.test.mjs
+      - name: Replay edited source with pinned reference dependencies
+        run: node tests/referenceReplay.mjs .reference
