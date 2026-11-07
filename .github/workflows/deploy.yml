@@ -6,6 +6,7 @@ on:
       - dev
 
 permissions:
+  packages: read
   actions: read
   contents: read
 
@@ -14,6 +15,7 @@ jobs:
     uses: ./.github/workflows/dev.yml
     secrets: inherit
   deploy:
+    if: github.repository == 'NSRingo/WeatherKit'
     needs: debug
     runs-on: ubuntu-latest
     steps:

@@ -6,6 +6,7 @@ on:
       - main
 
 permissions:
+  packages: read
   actions: read
   contents: write
 

@@ -18,5 +18,5 @@ runs:
       run: npm ci
       shell: bash
       env:
-        NODE_AUTH_TOKEN: ${{ inputs.package-token }}
+        NODE_AUTH_TOKEN: ${{ inputs.package-token || github.token }}
         PUPPETEER_SKIP_DOWNLOAD: "true"

@@ -12,7 +12,7 @@
 
 ## 构建与验证
 
-需要 Node.js 26 和能读取上游 GitHub Packages 的凭据。将凭据保存在本机环境变量 `NODE_AUTH_TOKEN`，在 GitHub Actions 中使用仓库 Secret `PACKAGE_TOKEN`；不要将凭据提交到代码。
+需要 Node.js 26 和能读取上游 GitHub Packages 的凭据。将凭据保存在本机环境变量 `NODE_AUTH_TOKEN`，GitHub Actions 默认使用只读 Packages 权限的 `GITHUB_TOKEN`，如上游包仍限制访问，则需要仓库 Secret `PACKAGE_TOKEN`。不要将凭据提交到代码。
 
 运行 `npm ci`、`npm run build`、`npm run build:dev`、`npm test` 验证脚本，再运行 `npm run build:args` 生成发布模块。完整模块构建包含 Egern 转换，需要 Puppeteer Chrome。
 
@@ -25,3 +25,5 @@ Loon 产物为 `dist/iRingo.WeatherKit.lpx`。版本 `v3.3.3` 的 Release 必须
 dev 分支支持 WK3 空气质量处理，使用 `@nsringo/weatherkit@1.2.0` 的模型并复用现有空气质量配置、数据源和算法。只有请求与设置都包含 `airQuality` 时才处理；其他 WK3 数据集保持 Apple 原始数据。
 
 当前采用 [WK3 b66 的局部 schema](https://github.com/NSRingo/apple.WeatherKit/blob/v1.2.0/WK3.Weather.fbs)。AQ 子树含未覆盖字段或枚举时保持原始数据；当前验证为静态和合成回放，尚无客户端实机验收结论。
+
+上游 Gist 发布任务仅在上游仓库运行；本 Fork 不向作者的测试 Gist 发布文件。
