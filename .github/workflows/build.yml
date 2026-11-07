@@ -30,6 +30,10 @@ jobs:
           ignore-semver-check: "false"
       - name: Build Scripts
         run: npm run build
+      - name: Build Development Scripts for Replay
+        run: npm run build:dev
+      - name: Run Regression Tests
+        run: npm test
       - name: Verify Script Bundles
         run: |
           test -s dist/request.bundle.js

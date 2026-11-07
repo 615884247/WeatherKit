@@ -18,12 +18,8 @@
 
 Loon 产物为 `dist/iRingo.WeatherKit.lpx`。版本 `v3.3.3` 的 Release 必须同时包含该文件、`request.bundle.js` 和 `response.bundle.js`，随后才能使用对应下载链接。
 
-本地验证已包含模块规则测试、CO 单位测试，以及使用上述作者测试版内嵌依赖的隔离源码回放；由于上游 GitHub Packages 返回 401，完整 npm 构建尚未通过。未进行 Apple 天气实机和真实第三方 API 验证。
+GitHub Actions 已成功下载依赖、构建正式脚本并生成各平台模块。构建流程同时执行开发版构建和完整回归测试，独立检查运行模块规则与固定测试版源码回放。未进行 Apple 天气实机和真实第三方 API 验证。
 
 不依赖 npm 凭据的检查：`node --test tests/severeWeatherRewriteModules.test.mjs`；将上述 Gist 克隆并检出固定快照后，运行 `node tests/referenceReplay.mjs /path/to/gist`。该回放校验引用文件 SHA-256，加载编辑后的正式处理器，模拟第三方数据并禁止真实 HTTP 请求。`Fork regression checks` 工作流执行相同检查；它不替代 npm 完整构建和实机验证。
-
-dev 分支支持 WK3 空气质量处理，使用 `@nsringo/weatherkit@1.2.0` 的模型并复用现有空气质量配置、数据源和算法。只有请求与设置都包含 `airQuality` 时才处理；其他 WK3 数据集保持 Apple 原始数据。
-
-当前采用 [WK3 b66 的局部 schema](https://github.com/NSRingo/apple.WeatherKit/blob/v1.2.0/WK3.Weather.fbs)。AQ 子树含未覆盖字段或枚举时保持原始数据；当前验证为静态和合成回放，尚无客户端实机验收结论。
 
 上游 Gist 发布任务仅在上游仓库运行；本 Fork 不向作者的测试 Gist 发布文件。
